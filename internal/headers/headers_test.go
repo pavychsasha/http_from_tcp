@@ -65,4 +65,16 @@ func TestHeadersParse(t *testing.T) {
 	require.Error(t, err)
 	assert.Equal(t, 0, n)
 	assert.False(t, done)
+
+	// Test: list of same headers
+	headers = NewHeaders()
+	data = []byte("Host: localhost:1\r\n\r\n")
+	headers.Parse(data)
+
+	data2 := []byte("Host: localhost:2\r\n\r\n")
+	headers.Parse(data2)
+	data3 := []byte("Host: localhost:3\r\n\r\n")
+	headers.Parse(data3)
+
+	assert.Equal(t, "localhost:1, localhost:2, localhost:3", headers["host"])
 }

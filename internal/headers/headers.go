@@ -40,7 +40,12 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 }
 
 func (h Headers) Set(key, value string) {
-	h[strings.ToLower(key)] = value
+	key = strings.ToLower(key)
+	if h[key] != "" {
+		h[key] = h[key] + ", " + value
+	} else {
+		h[strings.ToLower(key)] = value
+	}
 }
 
 func parseHeaderBytes(val []byte) (key []byte, value []byte, err error) {
