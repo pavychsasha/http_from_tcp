@@ -14,11 +14,10 @@ const tcpPortListener = ":42069"
 func main() {
 
 	listener, err := net.Listen("tcp", tcpPortListener)
-	defer listener.Close()
-
 	if err != nil {
 		log.Fatalf("Could not open a tcp listener: %s", err)
 	}
+	defer listener.Close()
 
 	// fmt.Printf("Reading data from %s\n", inputPath)
 	fmt.Println("=====================================")

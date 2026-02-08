@@ -19,7 +19,7 @@ func NewHeaders() Headers {
 
 func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 
-	crlfIdx := bytes.IndexAny(data, CRLF)
+	crlfIdx := bytes.Index(data, []byte(CRLF))
 	switch crlfIdx {
 	case -1:
 		return 0, false, nil
@@ -57,7 +57,7 @@ func parseHeaderBytes(val []byte) (key []byte, value []byte, err error) {
 	key = values[0]
 	value = values[1]
 
-	if key[len(key)-1] == byte(' ') {
+	if bytes.Contains(key, []byte(" ")) {
 		return []byte{}, []byte{}, fmt.Errorf("Invalid header: there should not be any spaces between field-name and colon in %s", val)
 	}
 	key = bytes.ReplaceAll(bytes.ToLower(key), []byte(" "), []byte(""))
