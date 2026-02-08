@@ -34,44 +34,12 @@ func main() {
 
 		request, err := request.RequestFromReader(conn)
 		fmt.Printf("Request line:\n- Method: %s\n- Target: %s\n- Version: %s\n", request.RequestLine.Method, request.RequestLine.RequestTarget, request.RequestLine.HttpVersion)
-		fmt.Printf("Headers:\n")
+		fmt.Println("Headers:")
 		for k, value := range request.Headers {
 			fmt.Printf("- %s: %s\n", k, value)
 		}
+		fmt.Printf("Body:\n%s\n", request.Body)
+
 		fmt.Println("Connection to", conn.RemoteAddr(), "closed")
 	}
-
-}
-
-func getLinesChannel(f io.ReadCloser) <-chan string {
-	res := make(chan string)
-	go func() {
-		defer f.Close()
-		defer close(res)
-
-		currentLine := ""
-		for {
-			b := make([]byte, 8)
-			n, err := f.Read(b)
-			if err != nil {
-				if currentLine != "" {
-					res <- currentLine
-				}
-				if errors.Is(err, io.EOF) {
-					break
-				}
-				fmt.Printf("Error: %s\n", err.Error())
-				break
-			}
-			output := string(b[:n])
-			parts := strings.Split(output, "\n")
-
-			for i := 0; i < len(parts)-1; i++ {
-				res <- currentLine + parts[i]
-				currentLine = ""
-			}
-			currentLine += parts[len(parts)-1]
-		}
-	}()
-	return res
 }

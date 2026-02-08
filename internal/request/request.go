@@ -2,8 +2,10 @@ package request
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 
 	"github.com/pavychsasha/httpfromtcp/internal/headers"
@@ -13,7 +15,7 @@ type Request struct {
 	RequestLine  RequestLine
 	RequestState RequestState
 	Headers      headers.Headers
-	// Body        []byte
+	Body         []byte
 }
 
 type RequestLine struct {
@@ -27,6 +29,7 @@ type RequestState int
 const (
 	INITIALIZED RequestState = iota
 	ParsingHeaders
+	ParsingBody
 	DONE
 )
 
@@ -53,6 +56,16 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 			if err == io.EOF {
 				if request.RequestState == INITIALIZED {
 					return nil, fmt.Errorf("incomplete request")
+				}
+				contentLen := request.Headers.Get("Content-Length")
+				if contentLen != "" {
+					contentLenInt, err := strconv.Atoi(contentLen)
+					if err != nil {
+						return nil, fmt.Errorf("Invalid Content-Length header: %s", err)
+					}
+					if contentLenInt != len(request.Body) {
+						return nil, errors.New("Content-Length header and body length are inconsistent")
+					}
 				}
 				break
 			}
@@ -139,10 +152,31 @@ func (r *Request) parseSingle(data []byte) (int, error) {
 			return 0, err
 		}
 		if done {
+			r.RequestState = ParsingBody
+		}
+		return numBytes, err
+
+	case ParsingBody:
+		contentLenStr := r.Headers.Get("Content-Length")
+		if contentLenStr == "" {
 			r.RequestState = DONE
+			return 0, nil
 		}
 
-		return numBytes, err
+		r.Body = append(r.Body, data...)
+		bodyLen := len(r.Body)
+		contentLen, err := strconv.Atoi(contentLenStr)
+		if err != nil {
+			return 0, fmt.Errorf("Could not parse Content-Length header: %v", err)
+		}
+		if bodyLen > contentLen {
+			return 0, fmt.Errorf("Content-Length(%s) and body length(%d) do not match", contentLenStr, bodyLen)
+		}
+		if contentLen == bodyLen {
+			r.RequestState = DONE
+			fmt.Printf("Consumed the entire length of the given data")
+		}
+		return len(data), nil
 	case DONE:
 		return 0, fmt.Errorf("error: trying to read data in a done state")
 	default:
@@ -164,7 +198,6 @@ func (r *Request) parse(data []byte) (int, error) {
 		}
 		totalProcessedBytes += n
 		if n == 0 {
-
 			break
 		}
 	}

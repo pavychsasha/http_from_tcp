@@ -48,6 +48,11 @@ func (h Headers) Set(key, value string) {
 	}
 }
 
+func (h Headers) Get(key string) string {
+	key = strings.ToLower(key)
+	return h[key]
+}
+
 func parseHeaderBytes(val []byte) (key []byte, value []byte, err error) {
 
 	values := bytes.SplitN(val, []byte(":"), 2)
