@@ -14,39 +14,38 @@ func TestHeadersParse(t *testing.T) {
 	n, done, err := headers.Parse(data)
 	require.NoError(t, err)
 	require.NotNil(t, headers)
-	assert.Equal(t, "localhost:42069", headers["Host"])
+	assert.Equal(t, "localhost:42069", headers["host"])
 	assert.Equal(t, 23, n)
 	assert.False(t, done)
 
-	// Valid single header with extra whitespace
+	// Test: Valid single header with extra whitespace
 	headers = NewHeaders()
-	data = []byte("Host:   localhost:42069    \r\n\r\n")
+	data = []byte("       Host: localhost:42069                           \r\n\r\n")
 	n, done, err = headers.Parse(data)
 	require.NoError(t, err)
 	require.NotNil(t, headers)
-	assert.Equal(t, "localhost:42069", headers["Host"])
-	assert.Equal(t, 29, n)
+	assert.Equal(t, "localhost:42069", headers["host"])
+	assert.Equal(t, 57, n)
 	assert.False(t, done)
 
-	// Test: Valid 2 headers with extra whitespace
-	headers = NewHeaders()
-	data = []byte("Host: localhost:42069\r\n\r\n")
+	// Test: Valid 2 headers with existing headers
+	headers = map[string]string{"host": "localhost:42069"}
+	data = []byte("User-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n")
 	n, done, err = headers.Parse(data)
 	require.NoError(t, err)
 	require.NotNil(t, headers)
-	assert.Equal(t, "localhost:42069", headers["Host"])
-	assert.Equal(t, 23, n)
+	assert.Equal(t, "localhost:42069", headers["host"])
+	assert.Equal(t, "curl/7.81.0", headers["user-agent"])
+	assert.Equal(t, 25, n)
 	assert.False(t, done)
 
-	data = []byte("Host-2:     localhost:3232069    \r\n\r\n")
+	// Test: Valid done
+	headers = NewHeaders()
+	data = []byte("\r\n a bunch of other stuff")
 	n, done, err = headers.Parse(data)
-	assert.Equal(t, "localhost:3232069", headers["Host-2"])
-	assert.Equal(t, 35, n)
-	assert.False(t, done)
-
-	// Test: valid Done
-	data = []byte("\r\n\r\n")
-	n, done, err = headers.Parse(data)
+	require.NoError(t, err)
+	require.NotNil(t, headers)
+	assert.Empty(t, headers)
 	assert.Equal(t, 2, n)
 	assert.True(t, done)
 
@@ -57,4 +56,13 @@ func TestHeadersParse(t *testing.T) {
 	require.Error(t, err)
 	assert.Equal(t, 0, n)
 	assert.False(t, done)
+
+	// Test: Invalid character header
+	headers = NewHeaders()
+	data = []byte("H©st: localhost:42069\r\n\r\n")
+	n, done, err = headers.Parse(data)
+	require.Error(t, err)
+	assert.Equal(t, 0, n)
+	assert.False(t, done)
 }
+

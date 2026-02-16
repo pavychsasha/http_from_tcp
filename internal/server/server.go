@@ -1,11 +1,13 @@
 package server
 
 import (
+	"bytes"
 	"fmt"
 	"log"
 	"net"
 	"sync/atomic"
 
+	"github.com/pavychsasha/httpfromtcp/internal/request"
 	"github.com/pavychsasha/httpfromtcp/internal/response"
 )
 
@@ -15,7 +17,7 @@ type Server struct {
 	Closed   atomic.Bool
 }
 
-func Serve(port int) (*Server, error) {
+func Serve(port int, handler Handler) (*Server, error) {
 
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
@@ -55,6 +57,15 @@ func (srv *Server) listen() error {
 
 func (srv *Server) handle(c net.Conn) {
 	defer c.Close()
+	request, err := request.RequestFromReader(c)
+	if err != nil {
+		HandleError(HandlerError{Message: err.Error(), Status: response.StatusInternalServerError}, c)
+		return
+	}
+
+	buff := bytes.NewBuffer([]byte{})
+	err = Handler(buff, request)
+
 	response.WriteStatusLine(c, response.StatusResponseOK)
 	headers := response.GetDefaultHeaders(0)
 	response.WriteHeaders(c, headers)
