@@ -12,11 +12,10 @@ import (
 const port = 42069
 
 func main() {
-	_, err := server.Serve(port)
+	_, err := server.Serve(port, handleRoutes)
 	if err != nil {
 		log.Fatalf("Error starting server: %v", err)
 	}
-	// defer server.Close()
 	log.Println("Server started on port", port)
 
 	sigChan := make(chan os.Signal, 1)

@@ -1,7 +1,6 @@
 package server
 
 import (
-	"bytes"
 	"fmt"
 	"log"
 	"net"
@@ -15,6 +14,7 @@ type Server struct {
 	Port     int
 	Listener net.Listener
 	Closed   atomic.Bool
+	Handler  Handler
 }
 
 func Serve(port int, handler Handler) (*Server, error) {
@@ -23,13 +23,13 @@ func Serve(port int, handler Handler) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	srv := &Server{Port: port, Listener: listener, Closed: atomic.Bool{}}
+	srv := &Server{Port: port, Listener: listener, Closed: atomic.Bool{}, Handler: handler}
 	go srv.listen()
 	return srv, nil
 }
 
 func (srv *Server) Close() error {
-	if srv.Closed.Load() == true {
+	if srv.Closed.Load() {
 		return nil
 	}
 	err := srv.Listener.Close()
@@ -43,14 +43,11 @@ func (srv *Server) Close() error {
 func (srv *Server) listen() error {
 	for !srv.Closed.Load() {
 		conn, err := srv.Listener.Accept()
-		defer conn.Close()
 
 		if err != nil {
 			log.Fatal(err)
 		}
-		go func(c net.Conn) {
-			srv.handle(c)
-		}(conn)
+		go srv.handle(conn)
 	}
 	return nil
 }
@@ -59,15 +56,18 @@ func (srv *Server) handle(c net.Conn) {
 	defer c.Close()
 	request, err := request.RequestFromReader(c)
 	if err != nil {
-		HandleError(HandlerError{Message: err.Error(), Status: response.StatusInternalServerError}, c)
+		log.Printf("Could not parse a request: %v", err)
 		return
 	}
 
-	buff := bytes.NewBuffer([]byte{})
-	err = Handler(buff, request)
+	w := response.Writer{
+		WriterState: response.WriterInitialized,
+		Writer:      c,
+	}
 
-	response.WriteStatusLine(c, response.StatusResponseOK)
-	headers := response.GetDefaultHeaders(0)
-	response.WriteHeaders(c, headers)
+	srv.Handler(
+		&w,
+		request,
+	)
 
 }
